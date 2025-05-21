@@ -10,6 +10,7 @@
 require_once 'config.php';
 require_once 'classes/GoogleSheetsManager.php';
 require_once 'classes/ArticleImprover.php';
+require_once 'extract_article.php'; // 記事取得関数を読み込み
 
 // エラー出力を無効化し、JSON形式のレスポンスのみを返す
 ini_set('display_errors', 0);
@@ -101,22 +102,13 @@ try {
             exit;
         }
         
-        // .article_titleと.article_bodyクラスを持つ要素を抽出
-        $title = '';
-        $body = '';
+        // 記事コンテンツを抽出する関数を使用
+        $extractedContent = extractArticleContent($html);
+        $title = $extractedContent['title'];
+        $body = $extractedContent['body'];
         
-        // タイトルの抽出
-        preg_match('/<[^>]*class=["\'].*?article_title.*?["\'][^>]*>(.*?)<\/[^>]*>/is', $html, $titleMatches);
-        if (!empty($titleMatches[1])) {
-            $title = strip_tags($titleMatches[1]);
-        }
-        
-        // 本文の抽出
-        preg_match('/<[^>]*class=["\'].*?article_body.*?["\'][^>]*>(.*?)<\/[^>]*>/is', $html, $bodyMatches);
-        if (!empty($bodyMatches[1])) {
-            // HTMLタグを除去
-            $body = strip_tags($bodyMatches[1]);
-        }
+        // デバッグ用
+        error_log("batch_process_api.php: 記事本文を取得しました。長さ: " . strlen($body));
         
         // タイトルまたは本文が見つからない場合はスキップ
         if (empty($title) && empty($body)) {

@@ -113,13 +113,12 @@ try {
             overflow-y: auto;
         }
         .table-responsive {
-            max-height: 70vh;
             overflow-y: auto;
         }
     </style>
 </head>
 <body>
-    <div class="container">
+    <div class="">
         <div class="d-flex justify-content-between align-items-center mb-4">
             <h1>記事改善管理システム</h1>
             <div>
