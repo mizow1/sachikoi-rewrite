@@ -1,0 +1,16 @@
+# 環境設定ファイル
+.env
+
+# PHPのデバッグファイル
+*.log
+error_log
+
+# エディタの設定ファイル
+.idea/
+.vscode/
+*.sublime-project
+*.sublime-workspace
+
+# OS生成ファイル
+.DS_Store
+Thumbs.db
