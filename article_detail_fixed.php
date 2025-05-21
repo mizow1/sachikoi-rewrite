@@ -285,10 +285,7 @@ try {
     <div class="container">
         <div class="d-flex justify-content-between align-items-center mb-4">
             <h1>記事詳細</h1>
-            <div>
-                <a href="index.php" class="btn btn-outline-secondary me-2">一覧に戻る</a>
-                <a href="?row=<?php echo $rowIndex; ?>&auto_process=1" class="btn btn-primary">この記事を自動処理</a>
-            </div>
+            <a href="index.php" class="btn btn-outline-secondary">一覧に戻る</a>
         </div>
         
         <?php if ($errorMessage): ?>

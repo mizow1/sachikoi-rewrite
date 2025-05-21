@@ -14,3 +14,7 @@ error_log
 # OS生成ファイル
 .DS_Store
 Thumbs.db
+
+# Googleサービスアカウントの認証情報
+*.json
+curious-subject-423402-k5-a94bf9c8c963.json

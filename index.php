@@ -28,11 +28,28 @@ try {
     // データ行を取得（ヘッダー行を除く）
     $dataRows = array_slice($sheetData, 1);
     
-    // 表示回数でソート（昇順）
+    // 表示回数が少ない記事を優先的に表示
     usort($dataRows, function($a, $b) {
-        $impressionsA = isset($a[1]) ? (int)$a[1] : 0;
-        $impressionsB = isset($b[1]) ? (int)$b[1] : 0;
-        return $impressionsA - $impressionsB;
+        // 正しいカラムの認識: A列=URL, B列=クリック数, C列=表示回数
+        // クリック数が少ない順
+        $clicksA = isset($a[1]) ? (int)$a[1] : 0;
+        $clicksB = isset($b[1]) ? (int)$b[1] : 0;
+        
+        // 表示回数が多い順
+        $impressionsA = isset($a[2]) ? (int)$a[2] : 0;
+        $impressionsB = isset($b[2]) ? (int)$b[2] : 0;
+        
+        // CTR計算（クリック数÷表示回数）
+        $ctrA = ($impressionsA > 0) ? $clicksA / $impressionsA : 0;
+        $ctrB = ($impressionsB > 0) ? $clicksB / $impressionsB : 0;
+        
+        // まず表示回数で昇順にソート（表示回数が少ない順）
+        if ($impressionsA != $impressionsB) {
+            return $impressionsA - $impressionsB;
+        }
+        
+        // 表示回数が同じ場合はCTRの小さい順にソート
+        return $ctrA - $ctrB;
     });
     
     // 記事の改善処理
@@ -103,7 +120,15 @@ try {
 </head>
 <body>
     <div class="container">
-        <h1 class="mb-4">記事改善管理システム</h1>
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1>記事改善管理システム</h1>
+            <div>
+                <a href="batch_process.php" class="btn btn-primary mb-3">自動改善バッチ処理実行</a>
+                <a href="batch_process.php?limit=10" class="btn btn-outline-primary mb-3">自動改善（10件）</a>
+                <button onclick="startApiBatchProcess()" class="btn btn-success mb-3">タイムアウト対策版バッチ処理</button>
+                <button onclick="startApiBatchProcess(5)" class="btn btn-outline-success mb-3">タイムアウト対策版（5件）</button>
+            </div>
+        </div>
         
         <?php if ($errorMessage): ?>
             <div class="alert alert-danger"><?php echo $errorMessage; ?></div>
@@ -125,8 +150,8 @@ try {
                                 <thead>
                                     <tr>
                                         <th>URL</th>
-                                        <th>表示回数</th>
                                         <th>クリック数</th>
+                                        <th>表示回数</th>
                                         <th>CTR</th>
                                         <th>平均掲載順位</th>
                                         <th>改善履歴</th>
@@ -171,5 +196,122 @@ try {
     </div>
     
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    
+    <script>
+    // APIを使用したバッチ処理の実行
+    function startApiBatchProcess(limit) {
+        // 対象行の取得
+        const rows = [];
+        $('table tbody tr').each(function(index) {
+            const url = $(this).find('td:first-child a').attr('href');
+            const rowIndex = index + 2; // スプレッドシートの行番号は2から始まる
+            rows.push({ url, rowIndex });
+        });
+        
+        // 処理対象を制限
+        const targetRows = limit ? rows.slice(0, limit) : rows;
+        
+        // プログレス表示用の要素を追加
+        $('.container').prepend(`
+            <div id="batch-progress" class="card mb-4">
+                <div class="card-header bg-primary text-white">
+                    <h5>バッチ処理の進行状況</h5>
+                </div>
+                <div class="card-body">
+                    <div class="progress mb-3">
+                        <div class="progress-bar" role="progressbar" style="width: 0%" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">0%</div>
+                    </div>
+                    <p>処理中: <span id="current-item">-</span></p>
+                    <p>進行状況: <span id="progress-status">0</span> / <span id="total-items">${targetRows.length}</span></p>
+                    <div id="result-messages" class="mt-3">
+                        <div class="alert alert-info">処理を開始します...</div>
+                    </div>
+                </div>
+            </div>
+        `);
+        
+        // 順番に処理する
+        processNextItem(targetRows, 0);
+    }
+    
+    // 次のアイテムを処理
+    function processNextItem(items, currentIndex) {
+        // 全てのアイテムを処理完了した場合
+        if (currentIndex >= items.length) {
+            $('#result-messages').prepend(`<div class="alert alert-success">全ての処理が完了しました。</div>`);
+            return;
+        }
+        
+        const item = items[currentIndex];
+        const progress = Math.round((currentIndex / items.length) * 100);
+        
+        // 進行状況を更新
+        $('.progress-bar').css('width', progress + '%').attr('aria-valuenow', progress).text(progress + '%');
+        $('#current-item').text(item.url);
+        $('#progress-status').text(currentIndex);
+        
+        // APIを呼び出し
+        $('#result-messages').prepend(`<div class="alert alert-info">${item.url} の処理を開始します...</div>`);
+        
+        $.ajax({
+            url: 'batch_process_api.php',
+            data: {
+                url: item.url,
+                row: item.rowIndex
+            },
+            dataType: 'json',
+            success: function(response) {
+                if (response && response.success) {
+                    $('#result-messages').prepend(`<div class="alert alert-success">${response.message}</div>`);
+                } else {
+                    const message = response && response.message ? response.message : '不明なエラーが発生しました';
+                    $('#result-messages').prepend(`<div class="alert alert-danger">${message}</div>`);
+                }
+                
+                // 2秒後に次のアイテムを処理
+                setTimeout(function() {
+                    processNextItem(items, currentIndex + 1);
+                }, 2000);
+            },
+            error: function(xhr, status, error) {
+                let errorMessage = error || 'エラーが発生しました';
+                
+                // レスポンステキストからエラーメッセージを抽出する試み
+                try {
+                    const responseText = xhr.responseText;
+                    if (responseText) {
+                        // HTMLが返ってきた場合はパースしない
+                        if (!responseText.includes('<!DOCTYPE html>') && !responseText.includes('<html')) {
+                            try {
+                                const jsonResponse = JSON.parse(responseText);
+                                if (jsonResponse && jsonResponse.message) {
+                                    errorMessage = jsonResponse.message;
+                                }
+                            } catch (e) {
+                                // JSONパースエラーの場合は、レスポンステキストをそのまま表示
+                                if (responseText.length < 100) { // 短いメッセージのみ表示
+                                    errorMessage = responseText;
+                                }
+                            }
+                        } else {
+                            errorMessage = 'HTMLエラーレスポンスが返されました。サーバーエラーの可能性があります。';
+                        }
+                    }
+                } catch (e) {
+                    console.error('Error parsing response:', e);
+                }
+                
+                $('#result-messages').prepend(`<div class="alert alert-danger">エラーが発生しました: ${errorMessage}</div>`);
+                
+                // 5秒後に再試行
+                setTimeout(function() {
+                    processNextItem(items, currentIndex);
+                }, 5000);
+            },
+            timeout: 300000 // 5分のタイムアウトに延長
+        });
+    }
+    </script>
 </body>
 </html>

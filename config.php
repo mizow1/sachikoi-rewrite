@@ -44,6 +44,10 @@ define('GOOGLE_SHEETS_API_KEY', getenv('GOOGLE_SHEETS_API_KEY')); // Google Shee
 define('SPREADSHEET_ID', getenv('SPREADSHEET_ID')); // スプレッドシートID
 define('SHEET_NAME', getenv('SHEET_NAME')); // シート名
 
+// サービスアカウント設定
+define('SERVICE_ACCOUNT_JSON', getenv('SERVICE_ACCOUNT_JSON')); // サービスアカウントのJSONファイルパス
+define('USE_SERVICE_ACCOUNT', getenv('USE_SERVICE_ACCOUNT') === 'true'); // サービスアカウントを使用するかどうか
+
 // OpenAI API設定
 define('OPENAI_API_KEY', getenv('OPENAI_API_KEY')); // OpenAI APIキー
 define('OPENAI_MODEL', getenv('OPENAI_MODEL')); // 使用するモデル
